@@ -959,7 +959,40 @@ static const struct tegra_smmu_swgroup tegra124_swgroups[] = {
 	{ .swgroup = TEGRA_SWGROUP_VI,        .reg = 0x280 },
 };
 
+static struct tegra_mc_hotreset tegra124_mc_hotreset[] = {
+	{TEGRA_SWGROUP_AFI,        0x200, 0x204,  0},
+	{TEGRA_SWGROUP_AVPC,       0x200, 0x204,  1},
+	{TEGRA_SWGROUP_DC,         0x200, 0x204,  2},
+	{TEGRA_SWGROUP_DCB,        0x200, 0x204,  3},
+	{TEGRA_SWGROUP_HC,         0x200, 0x204,  6},
+	{TEGRA_SWGROUP_HDA,        0x200, 0x204,  7},
+	{TEGRA_SWGROUP_ISP2,       0x200, 0x204,  8},
+	{TEGRA_SWGROUP_MPCORE,     0x200, 0x204,  9},
+	{TEGRA_SWGROUP_MPCORELP,   0x200, 0x204, 10},
+	{TEGRA_SWGROUP_MSENC,      0x200, 0x204, 11},
+	{TEGRA_SWGROUP_PPCS,       0x200, 0x204, 14},
+	{TEGRA_SWGROUP_SATA,       0x200, 0x204, 15},
+	{TEGRA_SWGROUP_VDE,        0x200, 0x204, 16},
+	{TEGRA_SWGROUP_VI,         0x200, 0x204, 17},
+	{TEGRA_SWGROUP_VIC,        0x200, 0x204, 18},
+	{TEGRA_SWGROUP_XUSB_HOST,  0x200, 0x204, 19},
+	{TEGRA_SWGROUP_XUSB_DEV,   0x200, 0x204, 20},
+	{TEGRA_SWGROUP_TSEC,       0x200, 0x204, 22},
+	{TEGRA_SWGROUP_SDMMC1A,    0x200, 0x204, 29},
+	{TEGRA_SWGROUP_SDMMC2A,    0x200, 0x204, 30},
+	{TEGRA_SWGROUP_SDMMC3A,    0x200, 0x204, 31},
+	{TEGRA_SWGROUP_SDMMC4A,    0x970, 0x974,  0},
+	{TEGRA_SWGROUP_ISP2B,      0x970, 0x974,  1},
+	{TEGRA_SWGROUP_GPU,        0x970, 0x974,  2},
+};
+
 #ifdef CONFIG_ARCH_TEGRA_124_SOC
+
+static const struct tegra_mc_ops tegra124_mc_ops = {
+	.flush = tegra114_mc_flush,
+	.flush_done = tegra114_mc_flush_done,
+};
+
 static void tegra124_flush_dcache(struct page *page, unsigned long offset,
 				  size_t size)
 {
@@ -991,5 +1024,8 @@ const struct tegra_mc_soc tegra124_mc_soc = {
 	.num_address_bits = 34,
 	.atom_size = 32,
 	.smmu = &tegra124_smmu_soc,
+	.hotresets = tegra124_mc_hotreset,
+	.num_hotresets = ARRAY_SIZE(tegra124_mc_hotreset),
+	.ops = &tegra124_mc_ops,
 };
 #endif /* CONFIG_ARCH_TEGRA_124_SOC */
