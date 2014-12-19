@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
@@ -61,6 +62,118 @@ static const struct of_device_id tegra_mc_of_match[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(of, tegra_mc_of_match);
+
+static struct tegra_mc_swgroup *tegra_mc_get_swgroup(struct tegra_mc *mc,
+					unsigned int swgroup)
+{
+	struct tegra_mc_swgroup *sg;
+
+	list_for_each_entry(sg, &mc->swgroups, head) {
+		if (sg->id == swgroup)
+			return sg;
+	}
+
+	return NULL;
+}
+
+static struct tegra_mc_swgroup *tegra_mc_add_swgroup(struct tegra_mc *mc,
+					unsigned int swgroup)
+{
+	struct tegra_mc_swgroup *sg;
+
+	sg = devm_kzalloc(mc->dev, sizeof(*sg), GFP_KERNEL);
+	if (!sg)
+		return ERR_PTR(-ENOMEM);
+
+	sg->id = swgroup;
+	sg->mc = mc;
+	list_add_tail(&sg->head, &mc->swgroups);
+	INIT_LIST_HEAD(&sg->clients);
+
+	return sg;
+}
+
+struct tegra_mc_swgroup *tegra_mc_find_swgroup(struct device_node *node,
+					int index)
+{
+	struct of_phandle_args args;
+	struct platform_device *pdev;
+	struct tegra_mc *mc;
+	int ret;
+
+	ret = of_parse_phandle_with_fixed_args(node, "nvidia,swgroup",
+				1, index, &args);
+	if (ret)
+		return ERR_PTR(ret);
+
+	pdev = of_find_device_by_node(args.np);
+	if (!pdev)
+		return NULL;
+
+	mc = platform_get_drvdata(pdev);
+	if (!mc)
+		return NULL;
+
+	return tegra_mc_get_swgroup(mc, args.args[0]);
+}
+EXPORT_SYMBOL(tegra_mc_find_swgroup);
+
+static int __tegra_mc_flush_op(struct tegra_mc_swgroup *sg, tegra_mc_op op)
+{
+	struct tegra_mc *mc;
+	const struct tegra_mc_hotreset *client;
+	int i;
+
+	mc = sg->mc;
+	client = mc->soc->hotresets;
+
+	for (i = 0; i < mc->soc->num_hotresets; i++, client++) {
+		if (sg->id == client->swgroup)
+			return op(mc, client);
+	}
+
+	return -EINVAL;
+
+}
+
+#define tegra_mc_flush_op(sg, op)			\
+	((!sg || !sg->mc || !sg->mc->soc->ops ||	\
+		!sg->mc->soc->ops->op) ?		\
+		-EINVAL : __tegra_mc_flush_op(sg, sg->mc->soc->ops->op))
+
+int tegra_mc_flush(struct tegra_mc_swgroup *sg)
+{
+	return tegra_mc_flush_op(sg, flush);
+}
+EXPORT_SYMBOL(tegra_mc_flush);
+
+int tegra_mc_flush_done(struct tegra_mc_swgroup *sg)
+{
+	return tegra_mc_flush_op(sg, flush_done);
+}
+EXPORT_SYMBOL(tegra_mc_flush_done);
+
+static int tegra_mc_build_swgroup(struct tegra_mc *mc)
+{
+	int i;
+
+	for (i = 0; i < mc->soc->num_clients; i++) {
+		struct tegra_mc_swgroup *sg;
+
+		sg = tegra_mc_get_swgroup(mc, mc->soc->clients[i].swgroup);
+
+		if (!sg) {
+			sg = tegra_mc_add_swgroup(mc,
+					mc->soc->clients[i].swgroup);
+			if (IS_ERR(sg))
+				return PTR_ERR(sg);
+		}
+
+		list_add_tail(&mc->soc->clients[i].head, &sg->clients);
+	}
+
+	return 0;
+}
 
 static int tegra_mc_setup_latency_allowance(struct tegra_mc *mc)
 {
@@ -229,6 +342,13 @@ static int tegra_mc_probe(struct platform_device *pdev)
 	/* length of MC tick in nanoseconds */
 	mc->tick = 30;
 
+	INIT_LIST_HEAD(&mc->swgroups);
+	err = tegra_mc_build_swgroup(mc);
+	if (err) {
+		dev_err(&pdev->dev, "failed to build swgroup: %d\n", err);
+		return err;
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	mc->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(mc->regs))
@@ -270,6 +390,8 @@ static int tegra_mc_probe(struct platform_device *pdev)
 			err);
 		return err;
 	}
+
+	mutex_init(&mc->lock);
 
 	value = MC_INT_DECERR_MTS | MC_INT_SECERR_SEC | MC_INT_DECERR_VPR |
 		MC_INT_INVALID_APB_ASID_UPDATE | MC_INT_INVALID_SMMU_PAGE |

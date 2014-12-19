@@ -15,7 +15,7 @@
 
 #include "mc.h"
 
-static const struct tegra_mc_client tegra114_mc_clients[] = {
+static struct tegra_mc_client tegra114_mc_clients[] = {
 	{
 		.id = 0x00,
 		.name = "ptcr",

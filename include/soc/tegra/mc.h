@@ -37,6 +37,32 @@ struct tegra_mc_client {
 
 	struct tegra_smmu_enable smmu;
 	struct tegra_mc_la la;
+
+	struct list_head head;
+};
+
+struct tegra_mc;
+
+/* hot reset */
+struct tegra_mc_hotreset {
+	unsigned int swgroup;
+	unsigned int ctrl;
+	unsigned int status;
+	unsigned int bit;
+};
+
+struct tegra_mc_swgroup {
+	unsigned int id;
+	struct tegra_mc *mc;
+	struct list_head head;
+	struct list_head clients;
+};
+
+struct tegra_mc_ops {
+	int (*flush)(struct tegra_mc *mc,
+			const struct tegra_mc_hotreset *hotreset);
+	int (*flush_done)(struct tegra_mc *mc,
+			const struct tegra_mc_hotreset *hotreset);
 };
 
 struct tegra_smmu_swgroup {
@@ -64,7 +90,6 @@ struct tegra_smmu_soc {
 	const struct tegra_smmu_ops *ops;
 };
 
-struct tegra_mc;
 struct tegra_smmu;
 
 #ifdef CONFIG_TEGRA_IOMMU_SMMU
@@ -81,8 +106,13 @@ tegra_smmu_probe(struct device *dev, const struct tegra_smmu_soc *soc,
 #endif
 
 struct tegra_mc_soc {
-	const struct tegra_mc_client *clients;
+	struct tegra_mc_client *clients;
 	unsigned int num_clients;
+
+	const struct tegra_mc_hotreset *hotresets;
+	unsigned int num_hotresets;
+
+	const struct tegra_mc_ops *ops;
 
 	const unsigned int *emem_regs;
 	unsigned int num_emem_regs;
@@ -102,6 +132,18 @@ struct tegra_mc {
 
 	const struct tegra_mc_soc *soc;
 	unsigned long tick;
+
+	struct list_head swgroups;
+
+	struct mutex lock;
 };
+
+typedef int (*tegra_mc_op)(struct tegra_mc *mc,
+				 const struct tegra_mc_hotreset *hotreset);
+
+struct tegra_mc_swgroup *tegra_mc_find_swgroup(struct device_node *node,
+					int index);
+int tegra_mc_flush(struct tegra_mc_swgroup *sg);
+int tegra_mc_flush_done(struct tegra_mc_swgroup *sg);
 
 #endif /* __SOC_TEGRA_MC_H__ */
