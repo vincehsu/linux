@@ -1682,6 +1682,10 @@
 		};
 	};
 
+	gpu-power-domain {
+		vdd-supply = <&vdd_gpu>;
+	};
+
 	/* Serial ATA */
 	sata@0,70020000 {
 		status = "okay";
