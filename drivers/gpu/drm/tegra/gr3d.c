@@ -281,21 +281,17 @@ static int gr3d_probe(struct platform_device *pdev)
 		}
 	}
 
-	err = tegra_powergate_sequence_power_up(TEGRA_POWERGATE_3D, gr3d->clk,
-						gr3d->rst);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to power up 3D unit\n");
+	err = clk_prepare_enable(gr3d->clk);
+	if (err) {
+		dev_err(&pdev->dev, "failed to enable clk\n");
 		return err;
 	}
 
 	if (gr3d->clk_secondary) {
-		err = tegra_powergate_sequence_power_up(TEGRA_POWERGATE_3D1,
-							gr3d->clk_secondary,
-							gr3d->rst_secondary);
-		if (err < 0) {
-			dev_err(&pdev->dev,
-				"failed to power up secondary 3D unit\n");
-			return err;
+		err = clk_prepare_enable(gr3d->clk_secondary);
+		if (err) {
+			dev_err(&pdev->dev, "failed to enable secondary clk\n");
+			goto err_clk_sec;
 		}
 	}
 
@@ -313,7 +309,7 @@ static int gr3d_probe(struct platform_device *pdev)
 	if (err < 0) {
 		dev_err(&pdev->dev, "failed to register host1x client: %d\n",
 			err);
-		return err;
+		goto err_host1x;
 	}
 
 	/* initialize address register map */
@@ -323,6 +319,13 @@ static int gr3d_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, gr3d);
 
 	return 0;
+
+err_clk_sec:
+	clk_disable_unprepare(gr3d->clk);
+err_host1x:
+	clk_disable_unprepare(gr3d->clk_secondary);
+
+	return err;
 }
 
 static int gr3d_remove(struct platform_device *pdev)
@@ -337,12 +340,9 @@ static int gr3d_remove(struct platform_device *pdev)
 		return err;
 	}
 
-	if (gr3d->clk_secondary) {
-		tegra_powergate_power_off(TEGRA_POWERGATE_3D1);
+	if (gr3d->clk_secondary)
 		clk_disable_unprepare(gr3d->clk_secondary);
-	}
 
-	tegra_powergate_power_off(TEGRA_POWERGATE_3D);
 	clk_disable_unprepare(gr3d->clk);
 
 	return 0;
