@@ -106,13 +106,7 @@ int tegra_pmc_cpu_remove_clamping(int cpuid);
 
 #ifdef CONFIG_ARCH_TEGRA
 int tegra_powergate_is_powered(int id);
-int tegra_powergate_power_on(int id);
-int tegra_powergate_power_off(int id);
 int tegra_powergate_remove_clamping(int id);
-
-/* Must be called with clk disabled, and returns with clk enabled */
-int tegra_powergate_sequence_power_up(int id, struct clk *clk,
-				      struct reset_control *rst);
 
 int tegra_io_rail_power_on(int id);
 int tegra_io_rail_power_off(int id);
@@ -122,23 +116,7 @@ static inline int tegra_powergate_is_powered(int id)
 	return -ENOSYS;
 }
 
-static inline int tegra_powergate_power_on(int id)
-{
-	return -ENOSYS;
-}
-
-static inline int tegra_powergate_power_off(int id)
-{
-	return -ENOSYS;
-}
-
 static inline int tegra_powergate_remove_clamping(int id)
-{
-	return -ENOSYS;
-}
-
-static inline int tegra_powergate_sequence_power_up(int id, struct clk *clk,
-						    struct reset_control *rst)
 {
 	return -ENOSYS;
 }
