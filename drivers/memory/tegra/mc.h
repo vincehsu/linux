@@ -25,6 +25,11 @@ static inline void mc_writel(struct tegra_mc *mc, u32 value,
 	writel(value, mc->regs + offset);
 }
 
+int tegra114_mc_flush(struct tegra_mc *mc,
+		const struct tegra_mc_hotreset *hotreset);
+int tegra114_mc_flush_done(struct tegra_mc *mc,
+		const struct tegra_mc_hotreset *hotreset);
+
 #ifdef CONFIG_ARCH_TEGRA_3x_SOC
 extern const struct tegra_mc_soc tegra30_mc_soc;
 #endif
